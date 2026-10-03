@@ -2,6 +2,8 @@
 #include <iostream>
 #include "src/bilangwriter.hh"
 #include "warcpreprocessor.hh"
+#include "tdmreservation.hh"
+#include "robotsreservation.hh"
 #include "src/lang.hh"
 #include "zipreader.hh"
 #include "util/compress.hh"
@@ -149,6 +151,12 @@ namespace warc2text {
                 continue;
             }
 
+            if (!options.skip_tdm_filter && !tdm_reservation.isAllowedByHeader(record))
+                continue;
+
+            if (!options.skip_robots_filter && !robots_reservation.isAllowedByHeader(record))
+                continue;
+
             if (record.getWARCcontentType().find("application/http") == std::string::npos)
                 continue;
 
@@ -163,6 +171,12 @@ namespace warc2text {
                 continue;
 
             if (!URLfilter(record.getURL()))
+                continue;
+
+            if (!options.skip_tdm_filter && !tdm_reservation.isAllowedByPayload(record))
+                continue;
+
+            if (!options.skip_robots_filter && !robots_reservation.isAllowedByPayload(record))
                 continue;
 
             if (options.encodeURLs)

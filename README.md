@@ -68,6 +68,8 @@ warc2text -o <output_folder> [ -f <output_files> ] [ --pdfpass <output_warc> ]
 * `--tag-filters` file containing filters that are used to eliminate matching documents
 * `--invert-tag-filters` output only documents that match the filter
 * `--url-filters` file containing regular expressions that match urls of documents to eliminate
+* `--skip-tdm-filter` Skip the tdm-reservation HTTP header / meta tag filtering, see [OPTOUT.md](OPTOUT.md).
+* `--skip-robots-filter` Skip the x-robots-tag / robots meta tag filtering, see [OPTOUT.md](OPTOUT.md).
 * `--compress-level` Compression level to use
 * `--compress` Compression algorithm for the output files. Default: gzip. Values: gzip or zstd
 * `--encoding-errors` How encoding errors should be handled. Possible values: ignore, replace (default), discard. Discard will discard every document that contains errors

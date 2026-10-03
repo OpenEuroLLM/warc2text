@@ -47,6 +47,8 @@ void parseArgs(int argc, char *argv[], Options& out) {
         ("pdfpass", po::value(&out.pdf_warc_filename), "Write PDF records to WARC")
         ("robotspass", po::value(&out.robots_warc_filename), "Write robots.txt records to WARC")
         ("robots-process", po::bool_switch(&out.robots_process), "Process robots.txt as normal documents")
+        ("skip-tdm-filter", po::bool_switch(&out.skip_tdm_filter)->default_value(false), "Skip the tdm-reservation header/meta tag filtering")
+        ("skip-robots-filter", po::bool_switch(&out.skip_robots_filter)->default_value(false), "Skip the x-robots-tag / robots meta tag filtering")
         ("paragraph-identification", po::bool_switch(&out.paragraph_identification)->default_value(false), "Add paragraph index in each b64encoded document as tab separated column")
         ("skip-text-extraction", po::bool_switch(&out.skip_text_extraction)->default_value(false))
         ("verbose,v", po::bool_switch(&out.verbose)->default_value(false), "Verbosity level")

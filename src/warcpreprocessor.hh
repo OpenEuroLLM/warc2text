@@ -5,6 +5,8 @@
 #include "src/lang.hh"
 #include "warcreader.hh"
 #include "bilangwriter.hh"
+#include "tdmreservation.hh"
+#include "robotsreservation.hh"
 #include "util.hh"
 #include <memory>
 #include <string>
@@ -43,6 +45,8 @@ namespace warc2text {
         bool multilang{};
         bool encodeURLs{};
         bool robots_process{};
+        bool skip_tdm_filter{};
+        bool skip_robots_filter{};
 
         size_t max_record_size;
     };
@@ -54,6 +58,8 @@ namespace warc2text {
             WARCPreprocessorOptions const &options;
             WARCWriter pdf_warc_writer;
             WARCWriter robots_warc_writer;
+            TDMReservation tdm_reservation;
+            RobotsReservation robots_reservation;
             unsigned int totalRecords;
             unsigned int textRecords;
             unsigned int langRecords;

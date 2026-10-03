@@ -24,6 +24,9 @@ add_library(warc2text_lib
     warcpreprocessor.cc
     warcreader.cc
     record.cc
+    reservationbase.cc
+    tdmreservation.cc
+    robotsreservation.cc
     html.cc
     lang.cc
     lang_cld2.cc
