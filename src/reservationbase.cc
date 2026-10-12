@@ -28,22 +28,6 @@ namespace {
         return p == std::string_view::npos ? std::string::npos : from + p;
     }
 
-    // Check if `needle` is inside s[from, end), case-insensitive.
-    bool containsIC(const std::string& s, std::size_t from, std::size_t end,
-                    std::string_view needle) {
-        if (from >= end || needle.empty() || end - from < needle.size())
-            return false;
-        for (std::size_t p = from; p + needle.size() <= end; ++p) {
-            std::size_t i = 0;
-            while (i < needle.size() &&
-                   std::tolower(static_cast<unsigned char>(s[p + i])) ==
-                   std::tolower(static_cast<unsigned char>(needle[i])))
-                ++i;
-            if (i == needle.size())
-                return true;
-        }
-        return false;
-    }
 
     // Extract the quoted value captured by the first group of `re` from `tag`.
     bool attrValue(const std::string& tag, const boost::regex& re, std::string& out) {
@@ -112,12 +96,6 @@ namespace warc2text {
             return out;
         std::size_t head_end = findNonCommented(s, head_start, end, rx.close_head);
         if (head_end == std::string::npos)
-            return out;
-
-        // Most records have no reservation meta tags:
-        // process them fast by simple substring search.
-        if (!containsIC(s, head_start, head_end, "tdm-reservation") &&
-            !containsIC(s, head_start, head_end, "robots"))
             return out;
 
         // collect the reservation meta tags inside the head span only
