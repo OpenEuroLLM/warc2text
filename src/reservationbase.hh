@@ -10,18 +10,23 @@ namespace warc2text {
     // HTTP headers and via HTML <meta> tags.
     class ReservationBase {
     public:
+        struct HeadMeta {
+            std::vector<std::string> tdm;
+            std::vector<std::string> robots;
+        };
+
         virtual ~ReservationBase() = default;
 
         // True if the record's HTTP headers do not reserve the content.
         virtual bool isAllowedByHeader(const Record& record) const = 0;
 
-        // True if the record's payload (HTML <meta> tags) does not reserve the content.
-        virtual bool isAllowedByPayload(const Record& record) const = 0;
+        // True if the record's payload (HTML <meta> tags) does not reserve the
+        // content. The meta tags are pre-extracted and passed as an argument
+        // to avoid many passes over HTML.
+        virtual bool isAllowedByPayload(const Record& record, const HeadMeta& headMeta) const = 0;
 
-    protected:
-        // Content values of <meta name="..." content="..."> tags with the given
-        // lowercase tag name, scanning the payload and skipping comments.
-        static std::vector<std::string> getMetaTagContents(const Record& record, const std::string& name);
+        // Extract opt-out meta tags from the HTML head.
+        static HeadMeta getHeadMetaReservations(const Record& record);
     };
 }
 

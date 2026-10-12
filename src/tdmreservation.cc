@@ -19,10 +19,10 @@ namespace warc2text {
         return false;
     }
 
-    bool TDMReservation::isAllowedByPayload(const Record& record) const {
+    bool TDMReservation::isAllowedByPayload(const Record& record, const HeadMeta& headMeta) const {
         if (!record.isTextFormat())
             return true;
-        for (std::string val : getMetaTagContents(record, "tdm-reservation")) {
+        for (std::string val : headMeta.tdm) {
             util::trim(val);
             if (!allows(val)) {
                 BOOST_LOG_TRIVIAL(info) << "Record " << record.getURL()

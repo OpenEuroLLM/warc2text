@@ -19,10 +19,10 @@ namespace warc2text {
         return false;
     }
 
-    bool RobotsReservation::isAllowedByPayload(const Record& record) const {
+    bool RobotsReservation::isAllowedByPayload(const Record& record, const HeadMeta& headMeta) const {
         if (!record.isTextFormat())
             return true;
-        for (std::string val : getMetaTagContents(record, "robots")) {
+        for (std::string val : headMeta.robots) {
             std::string rejecting = disallowReason(util::toLowerCopy(val));
             if (!rejecting.empty()) {
                 BOOST_LOG_TRIVIAL(info) << "Record " << record.getURL()

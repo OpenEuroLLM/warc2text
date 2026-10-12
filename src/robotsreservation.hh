@@ -8,7 +8,7 @@ namespace warc2text {
     class RobotsReservation : public ReservationBase {
     public:
         bool isAllowedByHeader(const Record& record) const override;
-        bool isAllowedByPayload(const Record& record) const override;
+        bool isAllowedByPayload(const Record& record, const HeadMeta& headMeta) const override;
 
     private:
         std::string disallowReason(std::string directives) const;

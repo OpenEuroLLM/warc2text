@@ -1,9 +1,9 @@
 #include "reservationbase.hh"
 #include "record.hh"
+#include <boost/regex.hpp>
 #include <cctype>
-#include <regex.h>
 #include <string>
-#include <utility>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -18,110 +18,132 @@ namespace {
         return true;
     }
 
-    // Position of the next match of `pat` (a "<tag\>" pattern compiled with
-    // REG_ICASE) that is not inside an HTML comment. regexec works on
-    // NUL-terminated C strings, so the search is split into NUL-free segments;
-    // a tag can never span a NUL byte.
-    std::size_t findTag(const std::string& s, std::size_t from, const regex_t& pat) {
-        while (from < s.size()) {
-            std::size_t nul = s.find('\0', from);
-            if (nul == std::string::npos)
-                nul = s.size();
-            regmatch_t m;
-            if (regexec(&pat, s.c_str() + from, 1, &m, 0) != 0) {
-                from = nul + 1;
-                continue;
+    // Find `needle` inside s[from, end), return npos if absent.
+    std::size_t boundedFind(const std::string& s, std::size_t from, std::size_t end,
+                            std::string_view needle) {
+        if (from >= end || end > s.size())
+            return std::string::npos;
+        std::string_view hay(s.data() + from, end - from);
+        std::size_t p = hay.find(needle);
+        return p == std::string_view::npos ? std::string::npos : from + p;
+    }
+
+    // Check if `needle` is inside s[from, end), case-insensitive.
+    bool containsIC(const std::string& s, std::size_t from, std::size_t end,
+                    std::string_view needle) {
+        if (from >= end || needle.empty() || end - from < needle.size())
+            return false;
+        for (std::size_t p = from; p + needle.size() <= end; ++p) {
+            std::size_t i = 0;
+            while (i < needle.size() &&
+                   std::tolower(static_cast<unsigned char>(s[p + i])) ==
+                   std::tolower(static_cast<unsigned char>(needle[i])))
+                ++i;
+            if (i == needle.size())
+                return true;
+        }
+        return false;
+    }
+
+    // Extract the quoted value captured by the first group of `re` from `tag`.
+    bool attrValue(const std::string& tag, const boost::regex& re, std::string& out) {
+        boost::match_results<std::string::const_iterator> m;
+        if (!boost::regex_search(tag.begin(), tag.end(), m, re))
+            return false;
+        out.assign(m[1].first, m[1].second);
+        return true;
+    }
+
+    // Position of the first match of `re` inside s[from, end) that is not
+    // inside an HTML comment.
+    // `re` is expected to be of the form `(<pat>)|<!--`.
+    std::size_t findNonCommented(const std::string& s, std::size_t from, std::size_t end,
+                                 const boost::regex& re) {
+        while (from < end) {
+            boost::match_results<std::string::const_iterator> m;
+            if (!boost::regex_search(s.begin() + from, s.begin() + end, m, re))
+                return std::string::npos;
+            // If the real pattern matched (group 1), it's the leftmost non-commented
+            // match. If group 1 didn't match, then '<!--' matched.
+            if (m[1].matched) {
+                std::size_t hit = from + static_cast<std::size_t>(m.position(1));
+                return hit;
             }
-            std::size_t hit = from + static_cast<std::size_t>(m.rm_so);
-            std::size_t cmt = s.find("<!--", from);
-            if (cmt != std::string::npos && cmt < hit) {
-                std::size_t end = s.find("-->", cmt);
-                from = end == std::string::npos ? s.size() : end + 3;
-                continue;
-            }
-            return hit;
+            std::size_t cmt = from + static_cast<std::size_t>(m.position());
+            std::size_t ce = boundedFind(s, cmt, end, "-->");
+            if (ce == std::string::npos)
+                return std::string::npos; // unterminated comment swallows the region
+            from = ce + 3;
         }
         return std::string::npos;
     }
 
-    // Extract the quoted value captured by the first group of `pat` from `tag`.
-    bool attrValue(const std::string& tag, const regex_t& pat, std::string& out) {
-        regmatch_t m[2];
-        if (regexec(&pat, tag.c_str(), 2, m, 0) != 0)
-            return false;
-        out.assign(tag, m[1].rm_so, m[1].rm_eo - m[1].rm_so);
-        return true;
-    }
+    // Precompiled patterns. \b matches word boundaries.
+    struct Regexes {
+        boost::regex head;
+        boost::regex close_head;
+        boost::regex meta;
+        boost::regex name_attr;
+        boost::regex content_attr;
 
-    struct TagRegexes {
-        regex_t meta;
-        regex_t head;
-        regex_t close_head;
-        regex_t name_attr;
-        regex_t content_attr;
-        bool ok;
-        TagRegexes() {
-            ok = (regcomp(&meta, "<meta\\>", REG_EXTENDED | REG_ICASE) == 0) &&
-                 (regcomp(&head, "<head\\>", REG_EXTENDED | REG_ICASE) == 0) &&
-                 (regcomp(&close_head, "</head\\>", REG_EXTENDED | REG_ICASE) == 0) &&
-                 (regcomp(&name_attr, "\\<name[[:space:]]*=[[:space:]]*[\"']([^\"']*)[\"']",
-                          REG_EXTENDED | REG_ICASE) == 0) &&
-                 (regcomp(&content_attr, "\\<content[[:space:]]*=[[:space:]]*[\"']([^\"']*)[\"']",
-                          REG_EXTENDED | REG_ICASE) == 0);
-        }
+        Regexes()
+            : head("(<head\\b)|<!--", boost::regex_constants::icase),
+              close_head("(</head\\b)|<!--", boost::regex_constants::icase),
+              meta("(<meta\\b)|<!--", boost::regex_constants::icase),
+              name_attr("\\bname\\s*=\\s*[\"']([^\"']*)[\"']",
+                        boost::regex_constants::icase),
+              content_attr("\\bcontent\\s*=\\s*[\"']([^\"']*)[\"']",
+                           boost::regex_constants::icase) {}
     };
 }
 
 namespace warc2text {
 
-    std::vector<std::string> ReservationBase::getMetaTagContents(const Record& record, const std::string& name) {
-        static const TagRegexes rx;
-        std::vector<std::string> contents;
-        if (!rx.ok)
-            return contents;
+    ReservationBase::HeadMeta ReservationBase::getHeadMetaReservations(const Record& record) {
+        static const Regexes rx;
+        HeadMeta out;
 
         const std::string& s = record.getPayload();
+        const std::size_t end = s.size();
 
-        // 1. All <meta name="..." content="..."> tags in the document (comments skipped).
-        std::vector<std::pair<std::size_t, std::string>> found;
-        std::size_t pos = 0;
-        while (true) {
-            std::size_t lt = findTag(s, pos, rx.meta);
+        // Locate the real (non-commented) <head> ... </head> span.
+        std::size_t head_start = findNonCommented(s, 0, end, rx.head);
+        if (head_start == std::string::npos)
+            return out;
+        std::size_t head_end = findNonCommented(s, head_start, end, rx.close_head);
+        if (head_end == std::string::npos)
+            return out;
+
+        // Most records have no reservation meta tags:
+        // process them fast by simple substring search.
+        if (!containsIC(s, head_start, head_end, "tdm-reservation") &&
+            !containsIC(s, head_start, head_end, "robots"))
+            return out;
+
+        // collect the reservation meta tags inside the head span only
+        std::size_t pos = head_start;
+        while (pos < head_end) {
+            std::size_t lt = findNonCommented(s, pos, head_end, rx.meta);
             if (lt == std::string::npos)
                 break;
-            std::size_t gt = s.find('>', lt);
+            std::size_t gt = boundedFind(s, lt, head_end, ">");
             if (gt == std::string::npos)
-                break;
-            pos = gt + 1;
-
+                break; // incorrect tag without a closing '>'
             std::string tag(s, lt, gt - lt);
             std::string name_val;
-            if (!attrValue(tag, rx.name_attr, name_val))
-                continue;
-            if (!ciEquals(name_val, name))
-                continue;
-            std::string content_val;
-            if (attrValue(tag, rx.content_attr, content_val))
-                found.push_back({lt, content_val});
+            if (attrValue(tag, rx.name_attr, name_val)) {
+                if (ciEquals(name_val, "tdm-reservation")) {
+                    std::string content_val;
+                    if (attrValue(tag, rx.content_attr, content_val))
+                        out.tdm.push_back(content_val);
+                } else if (ciEquals(name_val, "robots")) {
+                    std::string content_val;
+                    if (attrValue(tag, rx.content_attr, content_val))
+                        out.robots.push_back(content_val);
+                }
+            }
+            pos = gt + 1;
         }
-
-        // Nothing found: no restriction expressed.
-        if (found.empty())
-            return contents;
-
-        // 2. The real (non-commented) <head> ... </head> span.
-        std::size_t head_start = findTag(s, 0, rx.head);
-        if (head_start == std::string::npos)
-            return contents;
-        std::size_t head_end = findTag(s, head_start, rx.close_head);
-        if (head_end == std::string::npos)
-            return contents;
-
-        // 3. Only meta tags located inside the head span count.
-        for (const auto& candidate : found) {
-            if (head_start <= candidate.first && candidate.first < head_end)
-                contents.push_back(candidate.second);
-        }
-        return contents;
+        return out;
     }
 }

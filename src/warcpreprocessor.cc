@@ -173,10 +173,16 @@ namespace warc2text {
             if (!URLfilter(record.getURL()))
                 continue;
 
-            if (!options.skip_tdm_filter && !tdm_reservation.isAllowedByPayload(record))
+            // Extract relevant meta tags from HTML once, then use for both
+            // TDM and robots filtering.
+            ReservationBase::HeadMeta headMeta;
+            if ((!options.skip_tdm_filter || !options.skip_robots_filter) && record.isTextFormat())
+                headMeta = ReservationBase::getHeadMetaReservations(record);
+
+            if (!options.skip_tdm_filter && !tdm_reservation.isAllowedByPayload(record, headMeta))
                 continue;
 
-            if (!options.skip_robots_filter && !robots_reservation.isAllowedByPayload(record))
+            if (!options.skip_robots_filter && !robots_reservation.isAllowedByPayload(record, headMeta))
                 continue;
 
             if (options.encodeURLs)

@@ -8,7 +8,7 @@ namespace warc2text {
     class TDMReservation : public ReservationBase {
     public:
         bool isAllowedByHeader(const Record& record) const override;
-        bool isAllowedByPayload(const Record& record) const override;
+        bool isAllowedByPayload(const Record& record, const HeadMeta& headMeta) const override;
 
     private:
         bool allows(const std::string& val) const;
