@@ -58,6 +58,7 @@ warc2text -o <output_folder> [ -f <output_files> ] [ --pdfpass <output_warc> ]
 * `--jsonl` Produce JSON Lines for `html` and `text` files instead of base64 encoding.
 * `--stdout` Write all the information in JSONLines to stdout. Needs --jsonl option.
 * `--pdfpass` WARC file where PDF records will be stored
+* `--audiopass` WARC file where audio records will be stored
 * `--robotstxtpass` WARC file where robots.txt related records will be stored
 * `--encode-urls` Escape non-ascii characters that appear in the record URL with `%dd` encoding.
 * `--multilang` Detect multiple languages in the document, and split the document accordingly. Only supported with CLD2 classifier.

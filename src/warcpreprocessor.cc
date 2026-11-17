@@ -1,5 +1,7 @@
 
 #include <iostream>
+#include <iomanip>
+#include <sstream>
 #include "src/bilangwriter.hh"
 #include "warcpreprocessor.hh"
 #include "tdmreservation.hh"
@@ -64,6 +66,43 @@ namespace {
 
         return false;
     }
+
+    bool isAudio(const warc2text::Record &record, std::string &reason) {
+        if (record.isTextFormat())
+            return false;
+        // Targets all MIME types starting with 'audio/', and audio-video containers.
+        static const std::unordered_set<std::string> mimePrefixes = {
+            "audio/", "video/", "application/ogg", "application/x-ogg"
+        };
+        const std::string &mime = record.getHTTPcontentType();
+        for (const auto &p : mimePrefixes)
+            if (mime.rfind(p, 0) == 0) {
+                reason = "mime:" + p;
+                return true;
+            }
+
+        static const std::unordered_set<std::string> extensions = {
+            "mp3", "mp2", "wav", "ogg", "oga", "opus", "flac", "aac",
+            "m4a", "m4b", "m4r", "wma", "aiff", "aif", "au", "snd",
+            "mid", "midi", "weba", "ra", "ram", "amr", "ac3", "dts",
+            "ape", "wv", "tta", "mka", "caf"
+        };
+        std::string path = record.getURL();
+        auto q = path.find_first_of("?#");
+        if (q != std::string::npos)
+            path.erase(q);
+        util::toLower(path);
+        auto slash = path.find_last_of('/');
+        auto dot = path.find_last_of('.');
+        if (dot == std::string::npos || (slash != std::string::npos && dot < slash))
+            return false;
+        std::string ext = path.substr(dot + 1);
+        if (extensions.count(ext) > 0) {
+            reason = "ext:." + ext;
+            return true;
+        }
+        return false;
+    }
 }
 
 namespace warc2text {
@@ -91,6 +130,9 @@ namespace warc2text {
 
             if (!options.pdf_warc_filename.empty())
                 pdf_warc_writer.open(options.pdf_warc_filename);
+
+            if (!options.audio_warc_filename.empty())
+                audio_warc_writer.open(options.audio_warc_filename);
 
             if (!options.robots_warc_filename.empty())
                 robots_warc_writer.open(options.robots_warc_filename);
@@ -164,6 +206,31 @@ namespace warc2text {
                 // found a PDF file, write record to disk and continue
                 // this is a no-op if pdf_warc_writer is not opened.
                 pdf_warc_writer.writeRecord(content);
+                continue;
+            }
+
+            std::string audio_reason;
+            if (::isAudio(record, audio_reason)) {
+                // found an audio file, write record to disk and continue
+                // this is a no-op if audio_warc_writer is not opened.
+                std::ostringstream http_size;
+                if (record.HTTPheaderExists("content-length")) {
+                    try {
+                        http_size << std::scientific << std::setprecision(1)
+                                  << static_cast<double>(std::stoull(record.getHTTPheaderProperty("content-length"))) << " B";
+                    } catch (const std::exception &) {
+                        http_size.str("");
+                        http_size << "n/a";
+                    }
+                } else {
+                    http_size << "n/a";
+                }
+                BOOST_LOG_TRIVIAL(info) << "Audio (" << audio_reason << ", "
+                    << std::scientific << std::setprecision(1)
+                    << static_cast<double>(record.getPayload().size()) << " B, http "
+                    << http_size.str() << ", "
+                    << record.getHTTPcontentType() << "): " << record.getURL();
+                audio_warc_writer.writeRecord(content);
                 continue;
             }
 

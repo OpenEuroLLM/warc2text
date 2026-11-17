@@ -29,6 +29,7 @@ namespace warc2text {
 
     struct WARCPreprocessorOptions {
         std::string pdf_warc_filename;
+        std::string audio_warc_filename;
         std::string robots_warc_filename;
         
         bool paragraph_identification{};
@@ -57,6 +58,7 @@ namespace warc2text {
             LanguageDetector const &detector;
             WARCPreprocessorOptions const &options;
             WARCWriter pdf_warc_writer;
+            WARCWriter audio_warc_writer;
             WARCWriter robots_warc_writer;
             TDMReservation tdm_reservation;
             RobotsReservation robots_reservation;

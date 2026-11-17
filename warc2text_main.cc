@@ -45,6 +45,7 @@ void parseArgs(int argc, char *argv[], Options& out) {
         ("invert-tag-filters", po::bool_switch(&out.tag_filters_invert)->default_value(false), "Invert tag filter application")
         ("url-filters", po::value(&out.url_filters_filename), "Plain text file containing url filters")
         ("pdfpass", po::value(&out.pdf_warc_filename), "Write PDF records to WARC")
+        ("audiopass", po::value(&out.audio_warc_filename), "Write audio records to WARC")
         ("robotspass", po::value(&out.robots_warc_filename), "Write robots.txt records to WARC")
         ("robots-process", po::bool_switch(&out.robots_process), "Process robots.txt as normal documents")
         ("skip-tdm-filter", po::bool_switch(&out.skip_tdm_filter)->default_value(false), "Skip the tdm-reservation header/meta tag filtering")
@@ -89,6 +90,7 @@ void parseArgs(int argc, char *argv[], Options& out) {
                 " --url-filters <filters_file>     File containing url filters\n"
                 "                                  Format: \"regexp\"\n"
                 " --pdfpass <output_warc>          Write PDF records to <output_warc>\n"
+                " --audiopass <output_warc>        Write audio records to <output_warc>\n"
                 " --robotspass <output_warc>       Write Robots.txt records to <output_warc>\n"
                 " --robots-process                 Process Robots.txt as any other document, instead of throwing them out\n"
                 " --encode-urls                    Encode URLs obtained from WARC records\n"
